@@ -11,6 +11,8 @@ class EntryPoint {
 		#if js
 			var nextTick = haxe.EventLoop.main.getNextTick();
 			inline function setTimeoutNextTick() {
+				// stop rescheduling once nothing blocking is left, so the process can exit
+				if( !haxe.EventLoop.main.hasEvents() ) return;
 				var time = nextTick < 0 ? 0 : nextTick * 1000;
 				if( time > 0x7FFFFFFF ) time = 0x7FFFFFFF;
 				(untyped setTimeout)(run, time);
