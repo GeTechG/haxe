@@ -1,0 +1,46 @@
+name: Binaries
+on:
+  push:
+    branches: ['**']
+
+permissions:
+  contents: write
+
+jobs:
+  linux64:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Skip when this commit already has a release
+        id: existing
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release view "build-$GITHUB_SHA" >/dev/null 2>&1 && echo "found=true" >> "$GITHUB_OUTPUT" || true
+
+      - name: Cache opam
+        if: steps.existing.outputs.found != 'true'
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.opam
+            _opam
+          key: ${{ runner.os }}-${{ runner.arch }}-opam-${{ hashFiles('haxe.opam', 'extra/build-linux.sh') }}
+
+      - name: Install dependencies
+        if: steps.existing.outputs.found != 'true'
+        run: |
+          sudo apt-get update -qqy
+          sudo apt-get install -qqy opam libpcre2-dev zlib1g-dev libmbedtls-dev
+
+      - name: Build
+        if: steps.existing.outputs.found != 'true'
+        run: extra/build-linux.sh
+
+      - name: Publish release for this commit
+        if: steps.existing.outputs.found != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "build-$GITHUB_SHA" out/haxe-linux64.tar.gz --target "$GITHUB_SHA" \
+            --title "$GITHUB_SHA" --notes "Linux x86_64 build of $GITHUB_SHA"
