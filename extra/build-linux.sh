@@ -20,7 +20,10 @@ trap 'rm -rf "$deps"' EXIT
 grep -v conf-neko haxe.opam > "$deps/haxe-deps.opam"
 opam install "$deps/haxe-deps.opam" --deps-only --assume-depexts
 
-opam exec -- make -s -j"$(nproc)" STATICLINK=1 ADD_REVISION=1 haxe
+# the pcre2 opam package links libpcre2-8 on its own, outside the Makefile's static block:
+# put a directory holding only the static archive first on the linker search path
+ln -s "$(gcc -print-file-name=libpcre2-8.a)" "$deps/"
+OCAMLPARAM="ccopt=-L$deps,_" opam exec -- make -s -j"$(nproc)" STATICLINK=1 ADD_REVISION=1 haxe
 ./haxe -version
 
 mkdir -p out
