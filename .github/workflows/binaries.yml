@@ -21,11 +21,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Skip when this commit already has a release
+      - name: Skip when this commit already has a build
         id: existing
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release view "build-$GITHUB_SHA" >/dev/null 2>&1 && echo "found=true" >> "$GITHUB_OUTPUT" || true
+        run: |
+          if gh release view builds --json assets -q '.assets[].name' 2>/dev/null | grep -qx "haxe-linux64-$GITHUB_SHA.tar.gz"; then
+            echo "found=true" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Cache opam
         if: steps.existing.outputs.found != 'true'
@@ -46,10 +49,15 @@ jobs:
         if: steps.existing.outputs.found != 'true'
         run: extra/build-linux.sh
 
-      - name: Publish release for this commit
+      # One release for all builds, one file per commit; its single tag follows the latest build.
+      - name: Publish the build of this commit
         if: steps.existing.outputs.found != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "build-$GITHUB_SHA" out/haxe-linux64.tar.gz --target "$GITHUB_SHA" \
-            --title "$GITHUB_SHA" --notes "Linux x86_64 build of $GITHUB_SHA"
+          asset="out/haxe-linux64-$GITHUB_SHA.tar.gz"
+          mv out/haxe-linux64.tar.gz "$asset"
+          git push -f origin "$GITHUB_SHA:refs/tags/builds"
+          gh release view builds >/dev/null 2>&1 || gh release create builds --verify-tag \
+            --title "Compiler builds" --notes "Linux x86_64 builds, one file per commit: haxe-linux64-<sha>.tar.gz"
+          gh release upload builds "$asset" --clobber
