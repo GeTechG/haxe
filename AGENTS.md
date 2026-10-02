@@ -4,7 +4,7 @@ Independent fork of `HaxeFoundation/haxe` (the Haxe compiler and standard librar
 
 ## Branches and delivery
 - One task — one branch, cut from `development`.
-- Delivery is a PR to `development`; never push to `development` directly.
+- No pull requests: this fork is worked on solo. When the task is done, run the checks on its branch, then rebase it onto `development` and fast-forward `development` to it (merge instead when a rebase is impractical) and push `development`.
 
 ## Commits
 - Every commit is **code** (compiler and library sources, tests, upstream metadata — anything that exists upstream) or **infrastructure** (the paths listed in `.github/infra-paths`, absent from upstream: this file, `openspec/`, our CI and scripts). Never both — CI rejects a mixed commit.
