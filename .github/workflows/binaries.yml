@@ -1,7 +1,16 @@
 name: Binaries
 on:
   push:
-    branches: ['**']
+    branches: [development]
+    # Infrastructure-only pushes do not change the compiler: no build.
+    paths-ignore:
+      - AGENTS.md
+      - 'openspec/**'
+      - .github/infra-paths
+      - '.github/scripts/**'
+      - .github/workflows/ci.yml
+  # Build any other commit on demand (pick the branch in "Run workflow").
+  workflow_dispatch:
 
 permissions:
   contents: write
