@@ -139,3 +139,5 @@ tests/misc/coroutines/dump
 */a.out
 tests/docgen/cpp/
 extra/doc/
+
+.serena
