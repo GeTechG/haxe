@@ -1,0 +1,7 @@
+schema: spec-driven
+
+context: |
+  haxe: the Haxe compiler and standard library, maintained as an independent fork of
+  HaxeFoundation/haxe. Its own rules live in AGENTS.md; its own specs live in openspec/specs.
+  Consumers pin it by commit.
+  Every commit is either code or infrastructure, never both (see openspec/specs/commit-kinds).
