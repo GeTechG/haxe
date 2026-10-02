@@ -8,3 +8,6 @@ openspec/
 .github/workflows/ci.yml
 .github/workflows/binaries.yml
 extra/build-linux.sh
+.agents/
+.claude/
+skills-lock.json

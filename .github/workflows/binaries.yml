@@ -9,6 +9,9 @@ on:
       - .github/infra-paths
       - '.github/scripts/**'
       - .github/workflows/ci.yml
+      - '.agents/**'
+      - '.claude/**'
+      - skills-lock.json
   # Build any other commit on demand (pick the branch in "Run workflow").
   workflow_dispatch:
 
