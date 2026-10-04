@@ -8,23 +8,20 @@ on:
 permissions:
   contents: write
 
-# One run at a time: a push that keeps the build key waits for the build in flight, then finds its file.
-concurrency: binaries
-
 jobs:
-  linux64:
+  # The build key: the last commit that touches code (a path outside .github/infra-paths) or the build
+  # recipe. Consumers compute it by the same rule to find the file, so an infrastructure push builds nothing.
+  key:
     runs-on: ubuntu-22.04
+    outputs:
+      key: ${{ steps.key.outputs.key }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0 # the build key is found in the history
 
-      # The build key: the last commit that touches code (a path outside .github/infra-paths) or the build
-      # recipe. Consumers compute it by the same rule to find the file, so an infrastructure push builds nothing.
-      - name: Find the build key, skip when it already has a build
+      - name: Find the build key
         id: key
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
           mapfile -t infra < <(sed -e '/^#/d' -e '/^$/d' -e '/^extra\/build-linux\.sh$/d' \
             -e 's/^/:(top,exclude,literal)/' .github/infra-paths)
@@ -32,20 +29,31 @@ jobs:
           [ -n "$key" ] || { echo "::error::no code commit in the history of $GITHUB_SHA"; exit 1; }
           echo "build key $key"
           echo "key=$key" >> "$GITHUB_OUTPUT"
-          if gh release view builds --json assets -q '.assets[].name' 2>/dev/null | grep -qx "haxe-linux64-$key.tar.gz"; then
+
+  linux64:
+    needs: key
+    runs-on: ubuntu-22.04
+    # One run per key at a time: a push that keeps the key waits for the build in flight, then finds its file.
+    concurrency: binaries-${{ needs.key.outputs.key }}
+    env:
+      KEY: ${{ needs.key.outputs.key }}
+    steps:
+      # `haxe -version` names the commit that is checked out: build the key commit, not the pushed head.
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.key.outputs.key }}
+
+      - name: Skip when the key already has a build
+        id: existing
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view builds --json assets -q '.assets[].name' 2>/dev/null | grep -qx "haxe-linux64-$KEY.tar.gz"; then
             echo "found=true" >> "$GITHUB_OUTPUT"
           fi
 
-      # `haxe -version` embeds `git rev-parse --short HEAD`: build the key commit, with the abbreviation
-      # pinned to the length a local build of the key reports.
-      - name: Check out the build key
-        if: steps.key.outputs.found != 'true'
-        run: |
-          git config core.abbrev 7
-          git checkout -q --detach "${{ steps.key.outputs.key }}"
-
       - name: Cache opam
-        if: steps.key.outputs.found != 'true'
+        if: steps.existing.outputs.found != 'true'
         uses: actions/cache@v4
         with:
           path: |
@@ -54,22 +62,23 @@ jobs:
           key: ${{ runner.os }}-${{ runner.arch }}-opam-${{ hashFiles('haxe.opam', 'extra/build-linux.sh') }}
 
       - name: Install dependencies
-        if: steps.key.outputs.found != 'true'
+        if: steps.existing.outputs.found != 'true'
         run: |
           sudo apt-get update -qqy
           sudo apt-get install -qqy opam libpcre2-dev zlib1g-dev libmbedtls-dev
 
       - name: Build
-        if: steps.key.outputs.found != 'true'
-        run: extra/build-linux.sh
+        if: steps.existing.outputs.found != 'true'
+        run: |
+          git config core.abbrev 7 # the revision length a local build of the key reports
+          extra/build-linux.sh
 
       # One release for all builds, one file per build key; its single tag follows the latest build.
       # No --clobber: consumers pin the checksum of a published file, and a rebuild would change it.
       - name: Publish the build of the key
-        if: steps.key.outputs.found != 'true'
+        if: steps.existing.outputs.found != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
-          KEY: ${{ steps.key.outputs.key }}
         run: |
           asset="out/haxe-linux64-$KEY.tar.gz"
           mv out/haxe-linux64.tar.gz "$asset"
