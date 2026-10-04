@@ -23,7 +23,7 @@ The workflow SHALL build the tree of the key commit, so that `haxe -version` of 
 - **THEN** the published compiler reports a version ending in `+539502a`
 
 ### Requirement: One file per key, never replaced
-The workflow SHALL build nothing when a file for the key is already published, and SHALL NOT replace a published file: consumers pin its checksum and the build is not bit-reproducible. Runs SHALL be serialised, so that two pushes with the same key yield one build.
+The workflow SHALL build nothing when a file for the key is already published, and SHALL NOT replace a published file: consumers pin its checksum and the build is not bit-reproducible. Runs for one key SHALL be serialised, so that two pushes with the same key yield one build; runs for different keys SHALL NOT cancel one another.
 
 #### Scenario: Key already published
 - **WHEN** a push to `development` has a build key whose file is in the `builds` release

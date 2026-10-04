@@ -6,7 +6,7 @@ Consumers look a compiler build up by its **build key** — the last commit in h
 
 - The workflow computes the build key from the history (full checkout), builds the key commit and publishes `haxe-linux64-<key>.tar.gz`; `haxe -version` of the build names the key commit.
 - A push whose key already has a file builds nothing. This replaces `paths-ignore`: every push to `development` starts the workflow, an infrastructure-only one ends at the lookup.
-- A published file is never replaced (consumers pin its checksum, and the build is not bit-reproducible); runs are serialised so two pushes with one key do not both build.
+- A published file is never replaced (consumers pin its checksum, and the build is not bit-reproducible); runs for one key are serialised so two pushes with that key do not both build.
 - `extra/build-linux.sh` stays in `.github/infra-paths`: it does not exist upstream, so it cannot be code. It is the one infrastructure path that moves the key; the exception is written down next to the list and in the spec.
 
 ## Capabilities

@@ -2,7 +2,7 @@
 
 - [x] 1.1 `binaries.yml`: full-history checkout, compute the build key, skip when `haxe-linux64-<key>.tar.gz` is published
 - [x] 1.2 Build the key commit with a 7-character revision in `haxe -version`; publish under the key without replacing an existing file
-- [x] 1.3 Drop `paths-ignore`; serialise runs
+- [x] 1.3 Drop `paths-ignore`; serialise runs per key
 
 ## 2. Documentation
 
