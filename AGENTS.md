@@ -30,5 +30,8 @@ Before pushing:
 - `bash .github/scripts/check-commit-kinds.sh origin/development..HEAD` — the check on your branch.
 - For code commits: build (`make haxe`) and run the tests the change touches, as described in `.github/copilot-instructions.md` and `tests/README.md`; a bug fix comes with a regression test. The full matrix runs in `.github/workflows/main.yml`.
 
+## Builds
+`.github/workflows/binaries.yml` publishes a Linux x86_64 compiler for every push to `development`, as `haxe-linux64-<key>.tar.gz` in the single `builds` release. `<key>` is the **build key**: the last commit in the history that touches code or the build recipe `extra/build-linux.sh` — the one infrastructure path that changes the compiler. An infrastructure push keeps the key and builds nothing; `haxe -version` names the key commit. Consumers find a build by computing the same key, and pin the checksum of the file: a published file is never replaced, and the rule changes only through `openspec/specs/binary-builds`.
+
 ## Specs
 `openspec/` holds this fork's own specs (`openspec/specs/`). Behaviour or rule changes go through `openspec/changes/`.
