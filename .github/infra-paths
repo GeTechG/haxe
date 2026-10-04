@@ -1,6 +1,7 @@
 # Infrastructure paths: files that do not exist upstream (HaxeFoundation/haxe).
 # One path per line; a trailing / matches a directory prefix. Everything else is code.
 # A commit touches code or infrastructure, never both (see AGENTS.md).
+# extra/build-linux.sh is the one infrastructure path that moves the build key (AGENTS.md, Builds).
 AGENTS.md
 openspec/
 .github/infra-paths
