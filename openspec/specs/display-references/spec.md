@@ -15,3 +15,10 @@ To answer a reference lookup (`display/references`, and the lookups that share i
 #### Scenario: Library code that only types in another context
 - **WHEN** the class paths hold modules that fail outside a full build (macro-only modules, classes built by a macro that fails in display mode) and they mention the looked-up name
 - **THEN** the lookup answers with a list of usages
+
+### Requirement: Every element of the answer is a location
+Code that a macro builds may carry no position. A usage inside such code is no place in a file: the answer of a reference lookup SHALL NOT hold it, neither as `null` nor in any other form. Every element of the answer SHALL be a location with a file and a range.
+
+#### Scenario: Type path built by a macro
+- **WHEN** a build macro adds a field whose type is a type path built without a position, and the references of the type it names are looked up
+- **THEN** the answer holds the usages written in the sources and no `null`
