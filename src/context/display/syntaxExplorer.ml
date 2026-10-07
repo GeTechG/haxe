@@ -111,21 +111,14 @@ let find_in_syntax symbols (pack,decls) =
 	in
 	List.iter (fun (td,p) -> match td with
 		| EImport(path,_) | EUsing path ->
-			begin match fst (ImportHandling.convert_import_to_something_usable null_pos path) with
-			| IDKModule(_,s) -> check KModuleType s
-			| IDKSubType(_,s1,s2) ->
-				check KModuleType s1;
-				check KModuleType s2;
-			| IDKSubTypeField(_,s1,s2,s3) ->
-				check KModuleType s1;
-				check KModuleType s2;
-				check KAnyField s3;
-			| IDKModuleField(_,s1,s2) ->
-				check KModuleType s1;
-				check KAnyField s2;
-			| IDKPackage _ | IDK ->
-				()
-			end;
+			(* The name is the module, a sub-type or a field of the path. An alias hides it from the rest of
+			   the file, so this is the only place where we can find it. *)
+			ignore(List.fold_left (fun in_module (s,_) ->
+				let is_type = not (is_lower_ident s) in
+				if is_type then check KModuleType s;
+				if in_module then check KAnyField s;
+				in_module || is_type
+			) false path)
 		| EClass d ->
 			check KModuleType (fst d.d_name);
 			List.iter (function
@@ -184,6 +177,9 @@ let explore_uncached_modules tctx cs symbols =
 						| Cancelled | Out_of_memory | Stack_overflow | Sys.Break as exc -> raise exc
 						| _ -> flush ()
 				in
+				(* An error in the macro context stops the interpreter, which would fail every macro of the
+				   candidates that follow. *)
+				if tctx.g.macros <> None then MacroContext.Interp.set_error (MacroContext.Interp.get_ctx()) false;
 				let m = try Some (tctx.g.do_load_module tctx (cfile.c_package,module_name) null_pos) with _ -> None in
 				flush ();
 				match m with
