@@ -14,5 +14,5 @@
 
 ## 3. Verification
 
-- [ ] 3.1 Fresh worktree, one command: Serena finds the references to a symbol of `src/` and to a symbol of `std/`; both lists compared with a text search
-- [ ] 3.2 Refusals: no `opam`, no build for the key, a foreign `project.local.yml`
+- [x] 3.1 Fresh worktree, one command: Serena finds the references to a symbol of `src/` and to a symbol of `std/`; both lists compared with a text search
+- [x] 3.2 Refusals: no `opam`, no build for the key, a foreign `project.local.yml`
