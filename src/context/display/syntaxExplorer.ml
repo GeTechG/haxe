@@ -174,14 +174,21 @@ let explore_uncached_modules tctx cs symbols =
 				find_in_syntax symbols (cfile.c_package,cfile.c_decls);
 				acc
 			with Exit ->
-				begin try
-					let m = tctx.g.do_load_module tctx (cfile.c_package,module_name) null_pos in
-					(* We have to flush immediately so we catch exceptions from weird modules *)
-					Typecore.flush_pass tctx.g PFinal ("final",cfile.c_package @ [module_name]);
-					m :: acc
-				with _ ->
-					acc
-				end
+				(* We have to flush immediately so we catch exceptions from weird modules. An exception leaves
+				   the remaining tasks in the queue, where they would fail whatever is typed next, so we keep
+				   flushing until the queue is empty. *)
+				let rec flush () =
+					try
+						Typecore.flush_pass tctx.g PFinal ("final",cfile.c_package @ [module_name])
+					with
+						| Cancelled | Out_of_memory | Stack_overflow | Sys.Break as exc -> raise exc
+						| _ -> flush ()
+				in
+				let m = try Some (tctx.g.do_load_module tctx (cfile.c_package,module_name) null_pos) with _ -> None in
+				flush ();
+				match m with
+				| Some m -> m :: acc
+				| None -> acc
 		) files []
 	) () in
 	acc
