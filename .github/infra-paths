@@ -12,3 +12,6 @@ extra/build-linux.sh
 .agents/
 .claude/
 skills-lock.json
+extra/setup-serena.sh
+.mcp.json
+.codex/

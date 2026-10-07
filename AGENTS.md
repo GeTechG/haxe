@@ -33,5 +33,15 @@ Before pushing:
 ## Builds
 `.github/workflows/binaries.yml` publishes a Linux x86_64 compiler for every push to `development`, as `haxe-linux64-<key>.tar.gz` in the single `builds` release. `<key>` is the **build key**: the last commit in the history that touches code or the build recipe `extra/build-linux.sh` — the one infrastructure path that changes the compiler. An infrastructure push keeps the key and builds nothing; `haxe -version` names the key commit. Consumers find a build by computing the same key, and pin the checksum of the file: a published file is never replaced, and the rule changes only through `openspec/specs/binary-builds`.
 
+## Navigation
+Serena (MCP; started by `.mcp.json` for Claude Code and `.codex/config.toml` for Codex) navigates by symbol: `ocaml-lsp` for the compiler in `src/`, the Haxe language server for `std/`. Prefer its symbolic tools to a text search there.
+
+`extra/setup-serena.sh` wires both to a checkout. Run it once in a new checkout or worktree, and again after adding a file to `std/` or moving to a commit with another build key; then restart Serena. It leaves:
+- `_opam` — the opam switch with the compiler's dependencies (shared between checkouts unless the checkout has its own). Build the compiler in it: `opam exec -- make haxe` (dune's release profile, the one the navigation index is built with).
+- `.haxe` — the published build for the checkout's build key (see *Builds*), never another one: if the key has no build yet, the command says so and stops. Haxe code is typed with it, against the checkout's `std/`: `HAXE_STD_PATH=$PWD/std .haxe/haxe .serena/display.hxml --no-output`. It is the compiler of the last code commit — to try a change in `src/`, use the `./haxe` you built.
+- `.serena/display.hxml` — every `std/` module that types under the interpreter target. The modules of other platforms and `tests/` are not in it, so references from them are not listed; a module that `std/eval/_std/` shadows is typed from there, so look its symbols up in that file.
+
+The Haxe server types the modules listed when the command ran. If one of them stops compiling, reference lists turn partial without saying so: before a rename or a removal, compare with a text search.
+
 ## Specs
 `openspec/` holds this fork's own specs (`openspec/specs/`). Behaviour or rule changes go through `openspec/changes/`.
