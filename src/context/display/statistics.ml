@@ -38,7 +38,8 @@ let collect_statistics com pos_filters with_expressions =
 		) pos_filters
 	in
 	let add_relation p r =
-		if check_pos p then try
+		(* Code built by a macro may have no position: there is no place to report. *)
+		if (snd r).pmin <> -1 && check_pos p then try
 			let l = Hashtbl.find relations p in
 			if not (List.mem r l) then
 				Hashtbl.replace relations p (r :: l)

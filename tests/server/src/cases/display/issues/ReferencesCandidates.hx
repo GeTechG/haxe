@@ -68,4 +68,42 @@ class ${name}Poison {
 		Assert.equals(1, result.filter(l -> l.file.toString().endsWith("CandA.hx")).length);
 		Assert.equals(1, result.filter(l -> l.file.toString().endsWith("CandB.hx")).length);
 	}
+
+	/**
+		class Main {
+			static function main() {
+				new {-1-}Target{-2-}();
+			}
+		}
+
+		class Tar{-3-}get {
+			public function new() {}
+		}
+
+		@:build(BuildMacro.build())
+		class Built {}
+	**/
+	function testTypeHintWithoutPosition(_) {
+		// A type path which a macro builds by hand has no position.
+		vfs.putContent("BuildMacro.hx", "import haxe.macro.Expr;
+
+class BuildMacro {
+	macro static public function build():Array<Field> {
+		var fields = haxe.macro.Context.getBuildFields();
+		fields.push({
+			name: 'target',
+			kind: FVar(TPath({pack: [], name: 'Main', sub: 'Target'})),
+			pos: haxe.macro.Context.currentPos()
+		});
+		return fields;
+	}
+}");
+		var result = runHaxeJson(["-cp", ".", "-D", "references-no-position"], DisplayMethods.FindReferences, {
+			file: file,
+			kind: WithBaseAndDescendants,
+			offset: offset(3)
+		});
+		Assert.isFalse(result.contains(null));
+		Assert.same([range(1, 2)], [for (l in result) if (l != null) l.range]);
+	}
 }
