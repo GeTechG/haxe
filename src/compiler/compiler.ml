@@ -60,8 +60,9 @@ let run_command com cmd =
 			Sys.command cmd
 		else begin
 			(* In server mode, capture stdout/stderr through the output target and
-			   forward the client's stdin from request_scope. *)
-			PipeThings.run_command io cmd
+			   forward the client's stdin from request_scope. The command gets the
+			   environment of the client, if the request carries it. *)
+			PipeThings.run_command ?env:(EvalStdLib.client_env_array()) io cmd
 		end
 	in
 	result
