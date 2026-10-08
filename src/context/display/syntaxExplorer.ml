@@ -167,19 +167,28 @@ let explore_uncached_modules tctx cs symbols =
 				find_in_syntax symbols (cfile.c_package,cfile.c_decls);
 				acc
 			with Exit ->
+				let reset_macros () = match tctx.g.macros with
+					| None -> ()
+					| Some (_,mctx) ->
+						(* The macro context has a queue of its own: what a macro module that failed to load left
+						   there would fail the next macro that is loaded. *)
+						Typecore.flush_pass mctx.g PFinal ("final",cfile.c_package @ [module_name]);
+						(* An error in the macro context stops the interpreter, which would fail every macro
+						   called after it. *)
+						MacroContext.Interp.set_error (MacroContext.Interp.get_ctx()) false
+				in
 				(* We have to flush immediately so we catch exceptions from weird modules. An exception leaves
 				   the remaining tasks in the queue, where they would fail whatever is typed next, so we keep
 				   flushing until the queue is empty. *)
 				let rec flush () =
 					try
+						reset_macros ();
 						Typecore.flush_pass tctx.g PFinal ("final",cfile.c_package @ [module_name])
 					with
 						| Cancelled | Out_of_memory | Stack_overflow | Sys.Break as exc -> raise exc
 						| _ -> flush ()
 				in
-				(* An error in the macro context stops the interpreter, which would fail every macro of the
-				   candidates that follow. *)
-				if tctx.g.macros <> None then MacroContext.Interp.set_error (MacroContext.Interp.get_ctx()) false;
+				flush ();
 				let m = try Some (tctx.g.do_load_module tctx (cfile.c_package,module_name) null_pos) with _ -> None in
 				flush ();
 				match m with

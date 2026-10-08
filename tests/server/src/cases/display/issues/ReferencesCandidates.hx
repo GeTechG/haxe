@@ -72,6 +72,51 @@ class ${name}Poison {
 	/**
 		class Main {
 			static function main() {
+				{-1-}uniqueName{-2-}();
+			}
+
+			static public function uniq{-3-}ueName() return 1;
+		}
+	**/
+	function testMacroModuleErrorInOtherCandidate(_) {
+		// The module of the macro does not load: the class it imports fails, which leaves its own methods to
+		// be typed in the macro context.
+		vfs.putContent("PoisonMacro.hx", "import PoisonDep;
+
+class PoisonMacro {
+	macro static public function build():Array<haxe.macro.Expr.Field> {
+		return missing.Missing.value();
+	}
+}");
+		vfs.putContent("PoisonDep.hx", "class PoisonDep extends missing.Missing {}");
+		// The build macros of both candidates are loaded after that, and have to run all the same.
+		for (name in ["CandA", "CandB"]) {
+			vfs.putContent('Build$name.hx', 'class Build$name {
+	macro static public function build():Array<haxe.macro.Expr.Field> {
+		return haxe.macro.Context.getBuildFields();
+	}
+}');
+			vfs.putContent('$name.hx', '@:build(Build$name.build())
+class $name {
+	static function use() return Main.uniqueName();
+}
+
+@:build(PoisonMacro.build())
+class ${name}Poison {}');
+		}
+		var result = runHaxeJson(["-cp", ".", "-D", "references-macro-module-error"], DisplayMethods.FindReferences, {
+			file: file,
+			kind: WithBaseAndDescendants,
+			offset: offset(3)
+		});
+		Assert.same([range(1, 2)], [for (l in result) if (l.file.toString().endsWith("Main.hx")) l.range]);
+		Assert.equals(1, result.filter(l -> l.file.toString().endsWith("CandA.hx")).length);
+		Assert.equals(1, result.filter(l -> l.file.toString().endsWith("CandB.hx")).length);
+	}
+
+	/**
+		class Main {
+			static function main() {
 				new {-1-}Target{-2-}();
 			}
 		}
