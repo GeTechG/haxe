@@ -19,7 +19,7 @@ For a request made by `haxe --connect`, `Sys.getEnv` and `Sys.environment` on ev
 ## ADDED Requirements
 
 ### Requirement: A process started by the request gets the environment of the client
-A process started by a request made by `haxe --connect` — by `Sys.command` or `sys.io.Process` on eval, or by `--cmd` — SHALL get the environment eval code of the request sees at that moment: the environment of the client with the changes `Sys.putEnv` made in the request so far, and nothing of the environment of the server. Its program SHALL be looked up in the `PATH` of that environment; on Windows this holds for a command line, which the shell runs, and a program started with an argument list is looked up in the `PATH` of the server. A request that carries no environment SHALL start processes in the environment of the server.
+A process started by a request made by `haxe --connect` — by `Sys.command` or `sys.io.Process` on eval, or by `--cmd` — SHALL get the environment eval code of the request sees at that moment: the environment of the client with the changes `Sys.putEnv` made in the request so far, and nothing of the environment of the server. Its program SHALL be looked up in the `PATH` of that environment, and in the default search path of the system when that environment has no `PATH`, never in the `PATH` of the server; on Windows this holds for a command line, which the shell runs, and a program started with an argument list is looked up in the `PATH` of the server. A request that carries no environment SHALL start processes in the environment of the server.
 
 The `haxelib` the compiler itself calls (to resolve `-lib`, to build for C++ or HashLink) is not covered: it runs in the environment of the server.
 
@@ -40,3 +40,8 @@ The `haxelib` the compiler itself calls (to resolve `-lib`, to build for C++ or 
 #### Scenario: Program found by the PATH of the client
 - **WHEN** the client is run with a directory first in its `PATH` that holds a program `tool`, the server was started without that directory, and the request calls `new sys.io.Process("tool", [])`
 - **THEN** the `tool` of that directory is run
+
+#### Scenario: Program in the PATH of the server only
+- **WHEN** the server was started with a directory in its `PATH` that holds a program `tool`, the client is run without that directory, and the request calls `new sys.io.Process("tool", [])`
+- **THEN** the program is not found, as without `--connect`
+- **AND** it is not found either after the request calls `Sys.putEnv("PATH", null)`
