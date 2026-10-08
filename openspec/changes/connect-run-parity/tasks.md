@@ -12,5 +12,5 @@
 
 - [x] 3.1 `tests/misc/eval/connect_stdin`: the same `--run` command with and without `--connect` prints the same arguments and environment and ends with the same code; fails on the build before the change, passes after
 - [x] 3.2 The rest of `tests/misc/eval/connect_stdin` passes
-- [x] 3.3 `tests/server` passes: requests that carry no client section are handled as before
+- [x] 3.3 `tests/server`: the same results as on the build before the change (requests that carry no client section are handled as before)
 - [x] 3.4 By hand, with and without `--connect`: exit codes 0, 1, 3, 255, -1; an uncaught exception; a compilation error; `--run` inside an hxml file; a variable unset in the client and set in the server
