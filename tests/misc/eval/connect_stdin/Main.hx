@@ -210,6 +210,33 @@ class Main {
 			return true;
 		});
 
+		// Test 12: a program under --run gets what it gets without --connect: the
+		// arguments after the class as they were typed, the environment of the
+		// client rather than the one the server was started in, and its exit code.
+		test("--run arguments, environment and exit code", () -> {
+			Sys.putEnv("HAXE_CONNECT_PROBE", "client");
+			var args = ["-cp", ".", "--run", "RunProbe", "a b", "-x y", "", "#c", "--connect", "1"];
+			function run(pre:Array<String>) {
+				var p = new Process("haxe", pre.concat(args));
+				p.stdin.close();
+				var out = p.stdout.readAll().toString();
+				var err = p.stderr.readAll().toString().trim();
+				var code = p.exitCode();
+				p.close();
+				return 'exit $code\n$out$err';
+			}
+			var cold = run([]);
+			var connected = run(["--connect", Std.string(port)]);
+			var expected = 'exit 3\nargs=["a b","-x y","","#c","--connect","1"]\ngetEnv=client\nenvironment=client\nputEnv=changed,changed\nerr\x025\ntail';
+			if (cold != expected || connected != expected) {
+				Sys.println('\n    Expected: "$expected"');
+				Sys.println('    Without --connect: "$cold"');
+				Sys.println('    With --connect: "$connected"');
+				return false;
+			}
+			return true;
+		});
+
 		// Clean up the server
 		server.kill();
 		server.close();
