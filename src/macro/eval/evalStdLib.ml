@@ -2730,6 +2730,14 @@ module StdStringTools = struct
 	)
 end
 
+(* The environment of the client of the compilation server request being processed, if
+   the client sent it: Sys reads and changes it instead of the environment of the server. *)
+let client_env : (string * string) list option ref = ref None
+
+(* Windows finds a variable whatever the case of its name *)
+let same_env_name a b =
+	if Sys.win32 then String.uppercase_ascii a = String.uppercase_ascii b else a = b
+
 module StdSys = struct
 	open MacroApi
 	open Common
@@ -2746,10 +2754,12 @@ module StdSys = struct
 	let cpuTime = vfun0 (fun () -> vfloat (Sys.time()))
 
 	let environment = vfun0 (fun () ->
-		let env = catch_unix_error Unix.environment() in
+		let env = match !client_env with
+			| Some env -> env
+			| None -> List.map (fun s -> ExtString.String.split s "=") (Array.to_list (catch_unix_error Unix.environment()))
+		in
 		let h = RuntimeStringHashtbl.create () in
-		Array.iter(fun s ->
-			let k, v = ExtString.String.split s "=" in
+		List.iter(fun (k,v) ->
 			RuntimeStringHashtbl.add h (create_ascii k) (create_unknown v)
 		) env;
 		encode_string_map_direct h
@@ -2780,7 +2790,9 @@ module StdSys = struct
 
 	let getEnv = vfun1 (fun s ->
 		let s = decode_string s in
-		try create_unknown (catch_unix_error Unix.getenv s) with _ -> vnull
+		match !client_env with
+		| Some env -> (try create_unknown (snd (List.find (fun (k,_) -> same_env_name k s) env)) with Not_found -> vnull)
+		| None -> try create_unknown (catch_unix_error Unix.getenv s) with _ -> vnull
 	)
 
 	let print = vfun1 (fun v ->
@@ -2807,14 +2819,16 @@ module StdSys = struct
 			vnull
 	)
 
-	let putEnv = vfun2 (fun s -> function
-		| v when v = vnull ->
-			let _ = Luv.Env.unsetenv (decode_string s) in vnull
-		| v ->
-			let s = decode_string s in
-			let v = decode_string v in
-			catch_unix_error Unix.putenv s v;
-			vnull
+	let putEnv = vfun2 (fun s v ->
+		let s = decode_string s in
+		let v = if v = vnull then None else Some (decode_string v) in
+		(match !client_env,v with
+		| Some env,_ ->
+			let env = List.filter (fun (k,_) -> not (same_env_name k s)) env in
+			client_env := Some (match v with Some v -> (s,v) :: env | None -> env)
+		| None,None -> ignore (Luv.Env.unsetenv s)
+		| None,Some v -> catch_unix_error Unix.putenv s v);
+		vnull
 	)
 
 	let setCwd = vfun1 (fun s ->

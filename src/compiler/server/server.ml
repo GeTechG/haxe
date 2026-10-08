@@ -58,20 +58,45 @@ module Connect = struct
 		);
 		let raw_args = ("--cwd " ^ Unix.getcwd()) :: Args.to_raw_args args in
 		let s = (String.concat "" (List.map (fun a -> a ^ "\n") raw_args)) in
-		PipeThings.ssend sock (Bytes.of_string (s ^ "\000"));
-		let has_error = ref false in
+		(* What a program under --run reads from its process goes after the arguments, one
+		   escaped value per line: the lines of arguments are parsed like an hxml file,
+		   which would split, unquote or drop them. *)
+		let run_args = match List.rev args with Run (_,l) :: _ -> l | _ -> [] in
+		let client_lines tag l = List.map (fun v -> tag ^ String.escaped v ^ "\n") l in
+		let client = client_lines "a" run_args @ client_lines "e" (Array.to_list (Unix.environment())) in
+		PipeThings.ssend sock (Bytes.of_string (s ^ "\002" ^ String.concat "" client ^ "\000"));
+		let code = ref 0 in
 		let print line =
 			match (if line = "" then '\x00' else line.[0]) with
 			| '\x01' ->
 				print_string (String.concat "\n" (List.tl (ExtString.String.nsplit line "\x01")));
 				flush stdout
 			| '\x02' ->
-				has_error := true;
+				(* The marker alone says that the request failed, a number after it is the exit code *)
+				(match int_of_string_opt (String.sub line 1 (String.length line - 1)) with
+				| Some c -> code := c
+				| None -> if !code = 0 then code := 1)
 			| _ ->
 				prerr_endline line;
 		in
 		PipeThings.poll sock print;
-		if !has_error then 1 else 0
+		!code
+
+	(* Reads what [do_connect] sends after the arguments: the arguments of the program
+	   under --run and the environment of the client. *)
+	let parse_client_data data =
+		List.fold_left (fun (run_args,env) line ->
+			if line = "" then
+				run_args,env
+			else begin
+				let v = String.sub line 1 (String.length line - 1) in
+				let v = try Scanf.unescaped v with _ -> v in
+				match line.[0] with
+				| 'a' -> v :: run_args,env
+				| 'e' -> run_args,(try ExtString.String.split v "=" :: env with _ -> env)
+				| _ -> run_args,env
+			end
+		) ([],[]) (List.rev (String.split_on_char '\n' data))
 end
 
 module SocketRequest = struct
@@ -177,14 +202,16 @@ let process sctx request_scope request_args =
 	ServerMessage.arguments (Args.string_of_request_args request_args);
 	ServerCompilationContext.reset sctx;
 	Option.may (fun dir -> try Unix.chdir dir with _ -> ()) sctx.persistent_cwd;
-	ignore (Std.finally (fun () -> Unix.chdir curdir) (HighLevel.entry sctx request_scope) request_args);
+	let code = Std.finally (fun () -> Unix.chdir curdir) (HighLevel.entry sctx request_scope) request_args in
 	ServerCompilationContext.run_delays sctx;
-	ServerMessage.stats request_scope.stats (Extc.time() -. t0)
+	ServerMessage.stats request_scope.stats (Extc.time() -. t0);
+	code
 
 module RequestQueue = struct
 	type request = {
 		args : parsed_arg list;
 		stdin : string option;
+		env : (string * string) list option; (* the environment of the client, if it sent it *)
 		conn : server_connection;
 	}
 
@@ -208,9 +235,9 @@ module RequestQueue = struct
 	let wake_up rq =
 		Semaphore.Counting.release rq.semaphore
 
-	let add rq args stdin conn =
+	let add rq args stdin env conn =
 		Mutex.lock rq.mutex;
-		rq.requests <- { args; stdin; conn; } :: rq.requests;
+		rq.requests <- { args; stdin; env; conn; } :: rq.requests;
 		Mutex.unlock rq.mutex;
 		wake_up rq
 
@@ -221,7 +248,7 @@ module RequestQueue = struct
 end
 
 type request_outcome =
-	| Success
+	| Success of int (* the exit code *)
 	| Cancelled
 	| Errored
 	| Oom
@@ -251,19 +278,31 @@ module WorkerDomain = struct
 
 	let create_request_io request =
 		let conn = request.conn in
-		let write_out s = conn.write ("\x01" ^ String.concat "\x01" (ExtString.String.nsplit s "\n") ^ "\n") in
-		let write_err s = conn.write s in
-		let write_result s = conn.write s in
-		let signal_error () = conn.write "\x02\n" in
-		CompilerIo.create ~write_out ~write_err ~write_result ~signal_error (conn.get_stdin())
+		(* Whether the answer ends in a line without its newline, as the standard error of a program may *)
+		let line_open = ref false in
+		(* The standard output and the standard error of the request are written by a thread each *)
+		let mutex = Mutex.create () in
+		let write s = Mutex.protect mutex (fun () ->
+			if s <> "" then line_open := s.[String.length s - 1] <> '\n';
+			conn.write s
+		) in
+		let write_out s = write ("\x01" ^ String.concat "\x01" (ExtString.String.nsplit s "\n") ^ "\n") in
+		let write_err s = write s in
+		let write_result s = write s in
+		let signal_error () = write "\x02\n" in
+		(* The error marker stands for 1: any other code is sent with it, on a line of its own *)
+		let write_exit_code code =
+			if code <> 0 && code <> 1 then write (Printf.sprintf "%s\x02%d\n" (if !line_open then "\n" else "") code)
+		in
+		CompilerIo.create ~write_out ~write_err ~write_result ~signal_error (conn.get_stdin()),write_exit_code
 
 	let run_request sctx io request =
 		sctx.current_stdin <- request.stdin;
+		EvalStdLib.client_env := request.env;
 		try
 			let request_args = Args.expand_args request.args in
 			let request_scope = create_request_scope ~is_server:true io request_args.display_arg in
-			process sctx request_scope request_args;
-			Success
+			Success (process sctx request_scope request_args)
 		with
 		| Cancelled ->
 			ServerMessage.uncaught_error "Compilation cancelled";
@@ -318,9 +357,11 @@ module WorkerDomain = struct
 						Mutex.unlock rq.mutex;
 						sctx.current_stdin <- request.stdin;
 						Atomic.set rq.cancel_token false;
-						let io = create_request_io request in
+						let io,write_exit_code = create_request_io request in
 						let outcome = run_request sctx io request in
+						(* Closing waits for what the request wrote to its output: the code goes after it *)
 						CompilerIo.close io;
+						(match outcome with Success code -> write_exit_code code | _ -> ());
 						request.conn.close();
 						begin match outcome with
 						| Oom ->
@@ -373,9 +414,19 @@ let wait_loop verbose accept =
 					with Not_found ->
 						None,s
 				in
+				let hxml,client = try
+					let hxml,client = ExtString.String.split hxml "\002" in
+					hxml,Some (Connect.parse_client_data client)
+				with _ ->
+					hxml,None
+				in
 				let data = Helper.parse_hxml_data hxml in
 				let parsed_args = Args.parse_args data in
-				RequestQueue.add rq parsed_args stdin conn;
+				let parsed_args = match client with
+					| Some (run_args,_) -> List.map (function Run (cl,[]) -> Run (cl,run_args) | arg -> arg) parsed_args
+					| None -> parsed_args
+				in
+				RequestQueue.add rq parsed_args stdin (Option.map snd client) conn;
 			with Unix.Unix_error _ ->
 				ServerMessage.socket_message "Connection Aborted";
 				conn.close()
