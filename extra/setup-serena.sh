@@ -1,12 +1,15 @@
 #!/usr/bin/env bash
-# Wires Serena to this checkout: ocaml-lsp for src/, the Haxe language server for std/.
+# Wires Serena to this checkout: ocaml-lsp for src/, the Haxe language server for std/; and ast-grep
+# (sgconfig.yml) to the Haxe grammar.
 # Run it in a new checkout or worktree and after adding a file to std/, then restart Serena.
-# Requires opam (with the libpcre2, zlib and mbedtls development packages), node, npm and curl.
+# Requires opam (with the libpcre2, zlib and mbedtls development packages), node, npm, curl and cc.
 #
 # Downloads and builds are shared between checkouts, in ${XDG_CACHE_HOME:-~/.cache}/haxe-dev:
 #   compiler/<build key>      the published build of this checkout's build key, linked as .haxe
 #   language-server/<commit>  vshaxe/haxe-language-server, built from source
 #   opam/<OCaml version>      the switch linked as _opam when the checkout has none
+#   ast-grep/<version>        @ast-grep/cli from npm, linked as .ast-grep/ast-grep
+#   tree-sitter-haxe/<commit> the Haxe grammar, built from source, linked as .ast-grep/haxe.so
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -14,6 +17,8 @@ REPO=GeTechG/haxe
 # The published vshaxe (2.34.2) needs `--wait stdio`, which Haxe 5 dropped; this commit talks to the
 # compiler over a socket.
 LS_COMMIT=e865ce6ffa9299960d558728948691b7a5e9d4a2
+AST_GREP_VERSION=0.45.3
+GRAMMAR_COMMIT=31ae7eb010e18975fd73cd65e14c71ef5054f9c7
 OCAML_VERSION=${OCAML_VERSION:-5.3.0}
 CACHE=${XDG_CACHE_HOME:-$HOME/.cache}/haxe-dev
 LOCAL=.serena/project.local.yml
@@ -27,12 +32,48 @@ trap 'rm -rf "${tmps[@]}"' EXIT
 
 [ "$(uname -sm)" = "Linux x86_64" ] || die "the published compiler builds are Linux x86_64 only"
 command -v opam >/dev/null || die "opam not found: install opam, libpcre2-dev, zlib1g-dev and libmbedtls-dev"
-for tool in node npm curl; do
+for tool in node npm curl cc; do
 	command -v "$tool" >/dev/null || die "$tool not found"
 done
 if [ -f "$LOCAL" ] && grep -qv '^\s*\(#\|$\)' "$LOCAL" && ! grep -qF "$MARK" "$LOCAL"; then
 	die "$LOCAL holds your own settings; move it aside and run again"
 fi
+
+# ast-grep needs neither the compiler nor opam, so it comes first: a build key without a build does
+# not hold it back.
+sg=$CACHE/ast-grep/$AST_GREP_VERSION
+if [ ! -x "$sg/node_modules/.bin/ast-grep" ]; then
+	mkdir -p "$CACHE/ast-grep"
+	tmp=$(mktemp -d "$sg.tmp.XXXXXX")
+	tmps+=("$tmp")
+	npm install --silent --no-save --prefix "$tmp" "@ast-grep/cli@$AST_GREP_VERSION"
+	mv -T "$tmp" "$sg" 2>/dev/null || true
+	[ -x "$sg/node_modules/.bin/ast-grep" ] || die "no ast-grep in $sg"
+fi
+# The grammar repository commits its generated src/parser.c: the C compiler is the whole build.
+grammar=$CACHE/tree-sitter-haxe/$GRAMMAR_COMMIT
+if [ ! -f "$grammar/haxe.so" ]; then
+	mkdir -p "$CACHE/tree-sitter-haxe"
+	tmp=$(mktemp -d "$grammar.tmp.XXXXXX")
+	tmps+=("$tmp")
+	git init -q "$tmp"
+	git -C "$tmp" fetch -q --depth 1 https://github.com/GeTechG/tree-sitter-haxe "$GRAMMAR_COMMIT"
+	git -C "$tmp" checkout -q FETCH_HEAD
+	mkdir "$tmp/out"
+	cc -shared -fPIC -O2 -I "$tmp/src" "$tmp"/src/*.c -o "$tmp/out/haxe.so"
+	mv -T "$tmp/out" "$grammar" 2>/dev/null || true
+	[ -f "$grammar/haxe.so" ] || die "no grammar library in $grammar"
+fi
+# .ast-grep, .haxe and _opam are untracked; ignoring them here keeps .gitignore, a code path, as it is
+# upstream.
+exclude=$(git rev-parse --git-path info/exclude)
+mkdir -p "$(dirname "$exclude")"
+for path in /.ast-grep /.haxe /_opam; do
+	grep -qxF "$path" "$exclude" 2>/dev/null || echo "$path" >> "$exclude"
+done
+mkdir -p .ast-grep
+ln -sfn "$sg/node_modules/.bin/ast-grep" .ast-grep/ast-grep
+ln -sfn "$grammar/haxe.so" .ast-grep/haxe.so
 
 # The compiler: the build of the build key, by the rule of .github/workflows/binaries.yml.
 mapfile -t infra < <(sed -e '/^#/d' -e '/^$/d' -e '/^extra\/build-linux\.sh$/d' \
@@ -102,12 +143,6 @@ opam install ocaml-lsp-server
 # profile is the Makefile's (.mcp.json and .codex/config.toml set it for Serena), dev stops at a warning.
 opam exec -- dune build --profile release @ocaml-index
 
-# .haxe and _opam are untracked; ignoring them here keeps .gitignore, a code path, as it is upstream.
-exclude=$(git rev-parse --git-path info/exclude)
-mkdir -p "$(dirname "$exclude")"
-for path in /.haxe /_opam; do
-	grep -qxF "$path" "$exclude" 2>/dev/null || echo "$path" >> "$exclude"
-done
 
 # Serena overwrites project.local.yml when it has to generate a missing project.yml.
 [ -f .serena/project.yml ] || printf 'language_servers:\n- ocaml\n- haxe\n' > .serena/project.yml
