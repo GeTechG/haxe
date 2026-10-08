@@ -36,10 +36,16 @@ Before pushing:
 ## Navigation
 Serena (MCP; started by `.mcp.json` for Claude Code and `.codex/config.toml` for Codex) navigates by symbol: `ocaml-lsp` for the compiler in `src/`, the Haxe language server for `std/`. Prefer its symbolic tools to a text search there.
 
-`extra/setup-serena.sh` wires both to a checkout. Run it once in a new checkout or worktree, and again after adding a file to `std/` or moving to a commit with another build key; then restart Serena. It leaves:
+Three ways to find code, each for its own question:
+- **Serena** — a symbol: its definition, its references, a rename. It knows what a name resolves to.
+- **`ast-grep`** — a shape of code, whatever the names in it: every `throw new $T($$$A)`, every call with a given argument form; and a rewrite of such a pattern across many files — `.ast-grep/ast-grep run -p '<pattern>' -r '<rewrite>' -l haxe <dir>` shows the diff, `-U` applies it. Haxe only (`sgconfig.yml`), and it reads syntax, not types. A pattern that does not parse as a piece of Haxe on its own (`--debug-query=ast` shows `ERROR`) is written as a rule on the node `kind` instead. A file that is not valid Haxe (some of `tests/` on purpose) is searched in part.
+- **Text search** — a string: comments, documentation, messages, other languages, and the check after either of the two above.
+
+`extra/setup-serena.sh` wires all of it to a checkout. Run it once in a new checkout or worktree, and again after adding a file to `std/` or moving to a commit with another build key; then restart Serena. It leaves:
 - `_opam` — the opam switch with the compiler's dependencies (shared between checkouts unless the checkout has its own). Build the compiler in it: `opam exec -- make haxe` (dune's release profile, the one the navigation index is built with).
 - `.haxe` — the published build for the checkout's build key (see *Builds*), never another one: if the key has no build yet, the command says so and stops. Haxe code is typed with it, against the checkout's `std/`: `HAXE_STD_PATH=$PWD/std .haxe/haxe .serena/display.hxml --no-output`. It is the compiler of the last code commit — to try a change in `src/`, use the `./haxe` you built.
 - `.serena/display.hxml` — every `std/` module that types under the interpreter target. The modules of other platforms and `tests/` are not in it, so references from them are not listed; a module that `std/eval/_std/` shadows is typed from there, so look its symbols up in that file.
+- `.ast-grep` — the `ast-grep` binary and the Haxe grammar, both at the versions pinned in the script. It is made first: it is there even when the command stops at a build key without a build.
 
 The Haxe server types the modules listed when the command ran. If one of them stops compiling, reference lists turn partial without saying so: before a rename or a removal, compare with a text search.
 

@@ -1,0 +1,6 @@
+# ast-grep on the Haxe sources: search and rewrite by code shape (see AGENTS.md, Navigation).
+# The grammar library is provisioned by extra/setup-serena.sh.
+customLanguages:
+  haxe:
+    libraryPath: .ast-grep/haxe.so
+    extensions: [hx]
