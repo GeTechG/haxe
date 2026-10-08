@@ -9,8 +9,8 @@ A program started with `haxe --connect <port> … --run Main a b` does not run a
 ## What Changes
 
 - The client sends, after its arguments, the arguments of the program under `--run` and its own environment. They are escaped one value per line: the argument lines are read like an hxml file, which would split `-x y`, strip spaces and quotes, and drop empty values and those starting with `#`.
-- For a request that carries an environment, `Sys.getEnv`, `Sys.environment` and `Sys.putEnv` on eval work on that environment — for the program under `--run` and for the macros of the same request, as without `--connect`. A request without one (an editor, an older client) sees the environment of the server, as before.
-- The server sends the exit code when it is not 0 or 1, as a number after the error marker; the client exits with it. An older client reads the same line as "failed".
+- For a request that carries an environment, `Sys.getEnv`, `Sys.environment` and `Sys.putEnv` on eval work on that environment and leave the one of the server alone — for the program under `--run` and for the macros of the same request, as without `--connect`. A request without one (an editor, an older client) sees the environment of the server, as before.
+- The server sends the exit code when it is not 0 or 1, as a number after the error marker, on a line of its own after everything the request wrote; the client exits with it. An older client reads the same line as "failed".
 - Not changed: a process the program starts (`Sys.command`, `sys.io.Process`) and `--cmd` still inherit the environment of the server. That needs the process runner outside this change: HX-12.
 - Test in `tests/misc/eval/connect_stdin`, the suite that already runs a real server and client.
 

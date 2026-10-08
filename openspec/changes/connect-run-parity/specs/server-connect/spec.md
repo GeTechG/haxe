@@ -8,7 +8,7 @@ A command with `--connect` SHALL give the program it runs with `--run <class>` t
 - **THEN** `Sys.args()` in `Main` is `["a b", "-x y", "", "#c", "--connect", "1"]`
 
 ### Requirement: Eval code of the request sees the environment of the client
-For a request made by `haxe --connect`, `Sys.getEnv` and `Sys.environment` on eval — in the program under `--run` and in the macros of the request — SHALL answer from the environment of the client process, not from the one the server was started in. `Sys.putEnv` SHALL change what they answer for the rest of the request. A request that carries no environment (one not made by `haxe --connect`) SHALL see the environment of the server.
+For a request made by `haxe --connect`, `Sys.getEnv` and `Sys.environment` on eval — in the program under `--run` and in the macros of the request — SHALL answer from the environment of the client process, not from the one the server was started in. `Sys.putEnv` SHALL change what they answer for the rest of the request and SHALL NOT change the environment of the server, so that nothing of it reaches a later request. A request that carries no environment (one not made by `haxe --connect`) SHALL see the environment of the server.
 
 A process started by the request (`Sys.command`, `sys.io.Process`, `--cmd`) is not covered: it inherits the environment of the server.
 
@@ -23,6 +23,7 @@ A process started by the request (`Sys.command`, `sys.io.Process`, `--cmd`) is n
 #### Scenario: putEnv
 - **WHEN** the program calls `Sys.putEnv("X", "changed")`
 - **THEN** `Sys.getEnv("X")` and `Sys.environment()["X"]` are `changed` until the request ends
+- **AND** the next request does not see `X=changed`, whoever sends it
 
 ### Requirement: The client exits with the code of the request
 A command with `--connect` SHALL exit with the code the same command exits with when run without `--connect`: the code a program under `--run` passes to `Sys.exit`, 1 for a failed compilation or an uncaught exception, 0 otherwise. What the program wrote to the standard error before it exited SHALL NOT change the code.
@@ -34,6 +35,10 @@ A command with `--connect` SHALL exit with the code the same command exits with 
 #### Scenario: Unterminated line on the standard error
 - **WHEN** the program writes `oops` without a newline to the standard error and calls `Sys.exit(4)`
 - **THEN** the client prints `oops` on its standard error and exits with 4
+
+#### Scenario: Output that looks like the answer of the server
+- **WHEN** the program writes the byte `\x02` followed by `5` inside a line of its standard error and calls `Sys.exit(3)`
+- **THEN** the client exits with 3
 
 #### Scenario: Failed compilation
 - **WHEN** the request fails to compile

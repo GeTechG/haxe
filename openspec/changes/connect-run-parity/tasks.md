@@ -2,11 +2,11 @@
 
 - [x] 1.1 Client (`Server.Connect.do_connect`): send the arguments after `--run <class>` and the environment after the argument lines, escaped one per line
 - [x] 1.2 Server (`Server.wait_loop`): read that section, give the arguments to the `--run` of the request, keep the environment with the request
-- [x] 1.3 Server sends an exit code other than 0 and 1 after the error marker; the client exits with it, also when the program left its last line of stderr without a newline
+- [x] 1.3 Server sends an exit code other than 0 and 1 after the error marker; on a line of its own after the output of the request is flushed; the client exits with it
 
 ## 2. Environment
 
-- [x] 2.1 `Sys.getEnv`, `Sys.environment`, `Sys.putEnv` on eval work on the environment of the request when it has one
+- [x] 2.1 `Sys.getEnv`, `Sys.environment`, `Sys.putEnv` on eval work on the environment of the request when it has one, and only on it
 
 ## 3. Verification
 
