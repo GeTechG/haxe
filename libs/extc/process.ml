@@ -39,12 +39,33 @@ let make_null_fd () =
 let unix_error_msg err fn arg =
 	Printf.sprintf "%s(%s): %s" fn arg (Unix.error_message err)
 
-let run cmd args =
+(** Looks [cmd] up in the PATH of [env], as the system does in the PATH of this process:
+	[Unix.create_process_env] gives the child [env], but still finds its program by ours. *)
+let find_in_path env cmd =
+	(* ponytail: Windows keeps the lookup of create_process_env (PATHEXT, current directory first) *)
+	if Sys.win32 || String.contains cmd '/' then cmd else
+	let path = List.find_map (fun s ->
+		if String.starts_with ~prefix:"PATH=" s then Some (String.sub s 5 (String.length s - 5)) else None
+	) (Array.to_list env) in
+	(* without a PATH the system searches its default one *)
+	let path = Option.value path ~default:"/bin:/usr/bin" in
+	let is_program file =
+		try Unix.access file [Unix.X_OK]; (Unix.stat file).Unix.st_kind = Unix.S_REG
+		with Unix.Unix_error _ -> false
+	in
+	let files = List.map (fun dir -> Filename.concat (if dir = "" then "." else dir) cmd) (String.split_on_char ':' path) in
+	match List.find_opt is_program files with
+	| Some file -> file
+	| None -> raise (Unix.Unix_error (Unix.ENOENT, "create_process", cmd))
+
+(** Starts [cmd] with [args], or as a shell command line without them. The child gets [env]
+	when given (and is looked up in the PATH of it), the environment of this process otherwise. *)
+let run ?env cmd args =
 	match args with
 	| None when Sys.win32 ->
 		(* cmd.exe must get the command line as is, not re-quoted as an argv entry.
 		   The pipes are duplicated so they stay readable after close_process_full. *)
-		let (pout, pin, perr) as popen = Unix.open_process_full cmd (Unix.environment ()) in
+		let (pout, pin, perr) as popen = Unix.open_process_full cmd (match env with Some env -> env | None -> Unix.environment ()) in
 		let dup fd = Unix.dup ~cloexec:true fd in
 		let stdin_fd = dup (Unix.descr_of_out_channel pin) in
 		close_out pin; (* so that close_stdin signals EOF *)
@@ -66,7 +87,9 @@ let run cmd args =
 			cmd, Array.append [|cmd|] a
 	in
 	match
-		try Ok (Unix.create_process shell argv child_stdin_r child_stdout_w child_stderr_w)
+		try Ok (match env with
+			| None -> Unix.create_process shell argv child_stdin_r child_stdout_w child_stderr_w
+			| Some env -> Unix.create_process_env (find_in_path env shell) argv env child_stdin_r child_stdout_w child_stderr_w)
 		with Unix.Unix_error _ as e -> Error e
 	with
 	| Ok pid ->

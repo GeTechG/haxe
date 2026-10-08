@@ -6,9 +6,15 @@ class Main {
 	static function main() {
 		var port = 7300;
 
-		// Start the compilation server
+		// Start the compilation server, with a variable and a program in its PATH its clients do not have
+		var path = Sys.getEnv("PATH");
+		Sys.putEnv("HAXE_CONNECT_SERVER", "server");
+		if (Sys.systemName() != "Windows")
+			Sys.putEnv("PATH", path + ":" + sys.FileSystem.absolutePath("tools/server"));
 		var server = new Process("haxe", ["--wait", Std.string(port)]);
 		Sys.sleep(1.0);
+		Sys.putEnv("HAXE_CONNECT_SERVER", null);
+		Sys.putEnv("PATH", path);
 
 		var failures = 0;
 		var count = 0;
@@ -228,6 +234,36 @@ class Main {
 			var cold = run([]);
 			var connected = run(["--connect", Std.string(port)]);
 			var expected = 'exit 3\nargs=["a b","-x y","","#c","--connect","1"]\ngetEnv=client\nenvironment=client\nputEnv=changed,changed\nerr\x025\ntail';
+			if (cold != expected || connected != expected) {
+				Sys.println('\n    Expected: "$expected"');
+				Sys.println('    Without --connect: "$cold"');
+				Sys.println('    With --connect: "$connected"');
+				return false;
+			}
+			return true;
+		});
+
+		// Test 13: a process the request starts (Sys.command, sys.io.Process, --cmd) gets
+		// what it gets without --connect: the environment of the client with what
+		// Sys.putEnv changed, nothing of the server, and a program found by the PATH of the client.
+		test("environment of child processes", () -> {
+			var windows = Sys.systemName() == "Windows";
+			Sys.putEnv("HAXE_CONNECT_PROBE", "client");
+			if (!windows)
+				Sys.putEnv("PATH", sys.FileSystem.absolutePath("tools") + ":" + Sys.getEnv("PATH"));
+			var args = ["-cp", ".", "--main", "ChildProbe", "--interp", "--cmd", "haxe -cp . --run ChildEnv cmd"];
+			function run(pre:Array<String>) {
+				var p = new Process("haxe", pre.concat(args));
+				p.stdin.close();
+				var out = p.stdout.readAll().toString();
+				var err = p.stderr.readAll().toString().trim();
+				var code = p.exitCode();
+				p.close();
+				return 'exit $code\n$out$err'.replace("\r\n", "\n");
+			}
+			var cold = run([]);
+			var connected = run(["--connect", Std.string(port)]);
+			var expected = "exit 0\ncommand client put null\nprocess client put null\n" + (windows ? "" : "tool client put \n") + "cmd client put null\n";
 			if (cold != expected || connected != expected) {
 				Sys.println('\n    Expected: "$expected"');
 				Sys.println('    Without --connect: "$cold"');

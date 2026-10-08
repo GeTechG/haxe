@@ -2734,6 +2734,10 @@ end
    the client sent it: Sys reads and changes it instead of the environment of the server. *)
 let client_env : (string * string) list option ref = ref None
 
+(* The same as the environment to start a process of the request with *)
+let client_env_array () =
+	Option.map (fun env -> Array.of_list (List.map (fun (k,v) -> k ^ "=" ^ v) env)) !client_env
+
 (* Windows finds a variable whatever the case of its name *)
 let same_env_name a b =
 	if Sys.win32 then String.uppercase_ascii a = String.uppercase_ascii b else a = b
@@ -3503,7 +3507,7 @@ let init_constructors builtins =
 					| VArray va -> Some (Array.map decode_string (Array.sub va.avalues 0 va.alength))
 					| _ -> unexpected_value args "array"
 				in
-				let proc = process_catch (fun () -> Process.run cmd args) () in
+				let proc = process_catch (fun () -> Process.run ?env:(client_env_array()) cmd args) () in
 				encode_instance key_sys_io__Process_NativeProcess ~kind:(IProcess proc)
 			| _ -> die "" __LOC__
 		);
