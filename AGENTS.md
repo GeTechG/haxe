@@ -45,7 +45,7 @@ Three ways to find code, each for its own question:
 - `_opam` — the opam switch with the compiler's dependencies (shared between checkouts unless the checkout has its own). Build the compiler in it: `opam exec -- make haxe` (dune's release profile, the one the navigation index is built with).
 - `.haxe` — the published build for the checkout's build key (see *Builds*), never another one: if the key has no build yet, the command says so and stops. Haxe code is typed with it, against the checkout's `std/`: `HAXE_STD_PATH=$PWD/std .haxe/haxe .serena/display.hxml --no-output`. It is the compiler of the last code commit — to try a change in `src/`, use the `./haxe` you built.
 - `.serena/display.hxml` — every `std/` module that types under the interpreter target. The modules of other platforms and `tests/` are not in it, so references from them are not listed; a module that `std/eval/_std/` shadows is typed from there, so look its symbols up in that file.
-- `.ast-grep` — the `ast-grep` binary and the Haxe grammar, both at the versions pinned in the script. It is made first and needs none of the above: it is there even when the command stops at a build key without a build.
+- `.ast-grep` — the `ast-grep` binary and the Haxe grammar, both at the versions pinned in the script. It is made first: it is there even when the command stops at a build key without a build.
 
 The Haxe server types the modules listed when the command ran. If one of them stops compiling, reference lists turn partial without saying so: before a rename or a removal, compare with a text search.
 

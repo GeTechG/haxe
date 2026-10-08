@@ -39,8 +39,8 @@ if [ -f "$LOCAL" ] && grep -qv '^\s*\(#\|$\)' "$LOCAL" && ! grep -qF "$MARK" "$L
 	die "$LOCAL holds your own settings; move it aside and run again"
 fi
 
-# ast-grep needs neither the compiler nor opam, so it comes first: a build key without a build does
-# not hold it back.
+# ast-grep does not need the compiler, so it comes first: a build key without a build does not hold
+# it back.
 sg=$CACHE/ast-grep/$AST_GREP_VERSION
 if [ ! -x "$sg/node_modules/.bin/ast-grep" ]; then
 	mkdir -p "$CACHE/ast-grep"
