@@ -4,7 +4,7 @@ An agent working in a checkout of this fork cannot search code by its shape: `as
 
 ## What Changes
 
-- `extra/setup-serena.sh` also provisions `ast-grep`, before anything that needs the compiler build or opam:
+- `extra/setup-serena.sh` also provisions `ast-grep`, after the checks of the required tools and before the compiler build is taken:
   - the `ast-grep` binary from the npm package `@ast-grep/cli` at the version pinned in the script (npm is already a requirement of the command), one cache directory per version;
   - the Haxe grammar `GeTechG/tree-sitter-haxe` at the commit pinned in the script, built with the system C compiler from the sources the repository commits, one cache directory per commit;
   - both linked into the checkout as `.ast-grep/ast-grep` and `.ast-grep/haxe.so`, ignored through the clone's `info/exclude`.

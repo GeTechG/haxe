@@ -1,7 +1,7 @@
 ## ADDED Requirements
 
 ### Requirement: The setup command provisions ast-grep for Haxe
-`extra/setup-serena.sh` SHALL, in a fresh checkout or worktree and without further steps, leave `.ast-grep/ast-grep` able to search `*.hx` files by code shape as the language `haxe`, configured by the tracked `sgconfig.yml` at the root. What it leaves in the checkout SHALL be untracked and ignored, without changing a code path. This step SHALL NOT depend on the compiler build of the checkout or on opam: it runs before them, so a build key without a build does not hold it back.
+`extra/setup-serena.sh` SHALL, in a fresh checkout or worktree and without further steps, leave `.ast-grep/ast-grep` able to search `*.hx` files by code shape as the language `haxe`, configured by the tracked `sgconfig.yml` at the root. What it leaves in the checkout SHALL be untracked and ignored, without changing a code path. The command checks its required tools first, as `serena-setup` states (without `opam` it fails before it writes anything, this step included). Past those checks this step SHALL run before the compiler build is taken, so a build key without a build does not hold it back.
 
 #### Scenario: Fresh worktree
 - **WHEN** the command has run once in a new worktree
