@@ -36,12 +36,22 @@ Before pushing:
 ## Navigation
 Serena (MCP; started by `.mcp.json` for Claude Code and `.codex/config.toml` for Codex) navigates by symbol: `ocaml-lsp` for the compiler in `src/`, the Haxe language server for `std/`. Prefer its symbolic tools to a text search there.
 
-Three ways to find code, each for its own question:
+Two ways to find code, each for its own question:
 - **Serena** — a symbol: its definition, its references, a rename. It knows what a name resolves to.
-- **`ast-grep`** — a shape of code, whatever the names in it: every `throw new $T($$$A)`, every call with a given argument form; and a rewrite of such a pattern across many files — `.ast-grep/ast-grep run -p '<pattern>' -r '<rewrite>' -l haxe <dir>` shows the diff, `-U` applies it. Haxe only (`sgconfig.yml`), and it reads syntax, not types. A pattern that does not parse as a piece of Haxe on its own (`--debug-query=ast` shows `ERROR`) is written as a rule on the node `kind` instead. A file that is not valid Haxe (some of `tests/` on purpose) is searched in part.
-- **Text search** — a string: comments, documentation, messages, other languages, and the check after either of the two above.
+- **Text search** — a string: comments, documentation, messages, other languages, and the check after a Serena lookup.
 
-Look code up in that order: Serena → `ast-grep` → text search, the first that answers. Read a file directly only once one of them has located the spot, and then only the range you need — never a whole source file to see what is in it (the symbol overview of Serena answers that).
+Look code up in that order: Serena → text search, the first that answers. Read a file directly only once one of them has located the spot, and then only the range you need — never a whole source file to see what is in it.
+
+Read code with Serena too, not with a text search for the identifier:
+- the body of a function or a class — `find_symbol` with `include_body`;
+- what a file consists of — `get_symbols_overview`;
+- who uses a name — `find_referencing_symbols`.
+
+`ast-grep` is not a step of that order. It is the tool for two jobs:
+- **a rewrite by pattern across many files**, instead of `sed -i` — `.ast-grep/ast-grep run -p '<pattern>' -r '<rewrite>' -l haxe <dir>` shows the diff, `-U` applies it.
+- **a question about the shape of code** that neither a symbol nor a string names: every `throw new $T($$$A)`, every call with a given argument form, whatever the names in it.
+
+Haxe only (`sgconfig.yml`), and it reads syntax, not types. A pattern that does not parse as a piece of Haxe on its own (`--debug-query=ast` shows `ERROR`) is written as a rule on the node `kind` instead. A file that is not valid Haxe (some of `tests/` on purpose) is searched in part.
 
 `extra/setup-serena.sh` wires all of it to a checkout. Run it once in a new checkout or worktree, and again after adding a file to `std/` or moving to a commit with another build key; then restart Serena. It leaves:
 - `_opam` — the opam switch with the compiler's dependencies (shared between checkouts unless the checkout has its own). Build the compiler in it: `opam exec -- make haxe` (dune's release profile, the one the navigation index is built with).
