@@ -1,7 +1,7 @@
 ## ADDED Requirements
 
 ### Requirement: An operating system error in a sys call is a Haxe exception
-When the operating system refuses a call of the `sys` API made by a program on eval — under `--run`, `--interp` or in a macro — the call SHALL throw a Haxe exception that the program can catch with `catch (e:haxe.Exception)`. The error SHALL NOT end the compiler with the OCaml exception (`Unix.Unix_error(…)`, `Failure`) instead. This covers `sys.net.Socket`, `sys.net.Host`, `sys.io.Process`, `sys.FileSystem`, `Sys` and `Date`.
+When the operating system refuses a call of the `sys` API made by a program on eval — under `--run`, `--interp` or in a macro — the call SHALL throw a Haxe exception that the program can catch with `catch (e:haxe.Exception)`. The error SHALL NOT end the compiler with the OCaml exception (`Unix.Unix_error(…)`, `Failure`) instead. This covers `sys.net.Socket`, `sys.io.Process`, `Sys.putEnv` and `Sys.systemName`.
 
 An exception the program does not catch ends the run with an error, like any other uncaught exception.
 
