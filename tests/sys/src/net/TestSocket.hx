@@ -26,4 +26,14 @@ class TestSocket extends utest.Test {
 		Assert.pass();
 	}
 	#end
+
+	#if eval
+	public function testShutdownNotConnected() {
+		var socket = register(new Socket());
+		try {
+			socket.shutdown(true, true);
+		} catch (e:haxe.Exception) {}
+		Assert.pass();
+	}
+	#end
 }
