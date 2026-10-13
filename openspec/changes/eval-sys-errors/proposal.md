@@ -8,7 +8,7 @@ The cause is one pattern in `src/macro/eval/evalStdLib.ml`: `catch_unix_error f 
 
 - An operating system error in these calls on eval becomes a Haxe exception, as it already is for the rest of the `sys` API:
   - `sys.net.Socket`: creation, `bind`, `listen`, `shutdown`, `setFastSend`, `setBroadcast`, `select`, and reading from and writing to the socket;
-  - `Sys.putEnv`, `Sys.systemName`;
+  - `Sys.putEnv` with a value, `Sys.systemName`;
   - `sys.io.Process`: `exitCode` and writing to `stdin`.
 - Nothing else changes: a call that succeeded gives the same result, and the calls that were guarded keep their messages.
 - Regression test in `tests/sys` (`net.TestSocket`), eval only.
