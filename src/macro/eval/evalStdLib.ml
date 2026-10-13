@@ -1972,7 +1972,7 @@ module StdNativeProcess = struct
 	)
 
 	let exitCode = vifun0 (fun vthis ->
-		vint (Process.exit (this vthis))
+		vint (process_catch Process.exit vthis)
 	)
 
 	let getPid = vifun0 (fun vthis ->
@@ -1998,7 +1998,7 @@ module StdNativeProcess = struct
 	)
 
 	let writeStdin = vifun3 (fun vthis bytes pos len ->
-		vint (call Process.write_stdin vthis bytes pos len)
+		vint (process_catch (fun _ -> call Process.write_stdin vthis bytes pos len) vthis)
 	)
 end
 
@@ -2199,7 +2199,7 @@ module StdSocket = struct
 		let this = this vthis in
 		let host = decode_i32 host in
 		let port = decode_int port in
-		catch_unix_error Unix.bind this (ADDR_INET (StdHost.int32_addr host,port));
+		catch_unix_error (Unix.bind this) (ADDR_INET (StdHost.int32_addr host,port));
 		vnull
 	)
 
@@ -2229,7 +2229,7 @@ module StdSocket = struct
 	let listen = vifun1 (fun vthis connections ->
 		let this = this vthis in
 		let connections = decode_int connections in
-		catch_unix_error Unix.listen this connections;
+		catch_unix_error (Unix.listen this) connections;
 		vnull
 	)
 
@@ -2248,12 +2248,12 @@ module StdSocket = struct
 		let buf = decode_bytes buf in
 		let pos = decode_int pos in
 		let len = decode_int len in
-		vint (catch_unix_error Unix.recv this buf pos len [])
+		vint (catch_unix_error (Unix.recv this buf pos len) [])
 	)
 
 	let receiveChar = vifun0 (fun vthis ->
 		let buf = Bytes.make 1 '\000' in
-		ignore(catch_unix_error Unix.recv (this vthis) buf 0 1 []);
+		ignore(catch_unix_error (Unix.recv (this vthis) buf 0 1) []);
 		vint (int_of_char (Bytes.unsafe_get buf 0))
 	)
 
@@ -2273,7 +2273,7 @@ module StdSocket = struct
 		let write = List.map pair (decode_optional_array write) in
 		let others = List.map pair (decode_optional_array others) in
 		let timeout = match timeout with VNull -> 0. | VInt32 i -> Int32.to_float i | VFloat f -> f | _ -> unexpected_value timeout "number" in
-		let read',write',others' = catch_unix_error Unix.select (List.map fst read) (List.map fst write) (List.map fst others) timeout in
+		let read',write',others' = catch_unix_error (Unix.select (List.map fst read) (List.map fst write) (List.map fst others)) timeout in
 		let read = List.map (fun sock -> List.assq sock read) read' in
 		let write = List.map (fun sock -> List.assq sock write) write' in
 		let others = List.map (fun sock -> List.assq sock others) others' in
@@ -2289,27 +2289,27 @@ module StdSocket = struct
 		let buf = decode_bytes buf in
 		let pos = decode_int pos in
 		let len = decode_int len in
-		vint (catch_unix_error Unix.send this buf pos len [])
+		vint (catch_unix_error (Unix.send this buf pos len) [])
 	)
 
 	let sendChar = vifun1 (fun vthis char ->
 		let this = this vthis in
 		let char = decode_int char in
-		ignore(catch_unix_error Unix.send this (Bytes.make 1 (char_of_int char)) 0 1 []);
+		ignore(catch_unix_error (Unix.send this (Bytes.make 1 (char_of_int char)) 0 1) []);
 		VNull
 	)
 
 	let setFastSend = vifun1 (fun vthis b ->
 		let this = this vthis in
 		let b = decode_bool b in
-		catch_unix_error Unix.setsockopt this TCP_NODELAY b;
+		catch_unix_error (Unix.setsockopt this TCP_NODELAY) b;
 		vnull
 	)
 
 	let setBroadcast = vifun1 (fun vthis b ->
 		let this = this vthis in
 		let b = decode_bool b in
-		catch_unix_error Unix.setsockopt this SO_BROADCAST b;
+		catch_unix_error (Unix.setsockopt this SO_BROADCAST) b;
 		vnull
 	)
 
@@ -2332,7 +2332,7 @@ module StdSocket = struct
 			| _,VTrue -> SHUTDOWN_SEND
 			| _ -> exc_string "Nothing to shut down"
 		in
-		catch_unix_error Unix.shutdown this mode;
+		catch_unix_error (Unix.shutdown this) mode;
 		vnull
 	)
 end
@@ -2831,7 +2831,7 @@ module StdSys = struct
 			let env = List.filter (fun (k,_) -> not (same_env_name k s)) env in
 			client_env := Some (match v with Some v -> (s,v) :: env | None -> env)
 		| None,None -> ignore (Luv.Env.unsetenv s)
-		| None,Some v -> catch_unix_error Unix.putenv s v);
+		| None,Some v -> catch_unix_error (Unix.putenv s) v);
 		vnull
 	)
 
@@ -2874,7 +2874,7 @@ module StdSys = struct
 					(match !cached_sys_name with
 					| Some n -> n
 					| None ->
-						let ic = catch_unix_error Unix.open_process_args_in "uname" [| "uname" |] in
+						let ic = catch_unix_error (Unix.open_process_args_in "uname") [| "uname" |] in
 						let uname = (match input_line ic with
 							| "Darwin" -> "Mac"
 							| n -> n
@@ -3513,7 +3513,7 @@ let init_constructors builtins =
 		);
 	add key_eval_vm_NativeSocket
 		(fun _ ->
-			encode_instance key_eval_vm_NativeSocket ~kind:(ISocket ((catch_unix_error Unix.socket Unix.PF_INET Unix.SOCK_STREAM) 0))
+			encode_instance key_eval_vm_NativeSocket ~kind:(ISocket (catch_unix_error (Unix.socket Unix.PF_INET Unix.SOCK_STREAM) 0))
 		);
 	add key_haxe_zip_Compress
 		(fun vl -> match vl with
