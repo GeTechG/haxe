@@ -73,7 +73,8 @@ jobs:
           git config core.abbrev 7 # the revision length a local build of the key reports
           extra/build-linux.sh
 
-      # One release for all builds, one file per build key; its single tag follows the latest build.
+      # One release for all builds, one file per build key, found by its name. The release's tag stays where
+      # it is: GITHUB_TOKEN may not move a ref across a change to .github/workflows/.
       # No --clobber: consumers pin the checksum of a published file, and a rebuild would change it.
       - name: Publish the build of the key
         if: steps.existing.outputs.found != 'true'
@@ -82,7 +83,6 @@ jobs:
         run: |
           asset="out/haxe-linux64-$KEY.tar.gz"
           mv out/haxe-linux64.tar.gz "$asset"
-          git push -f origin "$KEY:refs/tags/builds"
-          gh release view builds >/dev/null 2>&1 || gh release create builds --verify-tag \
+          gh release view builds >/dev/null 2>&1 || gh release create builds --target "$KEY" \
             --title "Compiler builds" --notes "Linux x86_64 builds, one file per build key: haxe-linux64-<key>.tar.gz"
           gh release upload builds "$asset"
