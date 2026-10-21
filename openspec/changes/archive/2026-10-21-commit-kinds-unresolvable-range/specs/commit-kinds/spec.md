@@ -1,0 +1,27 @@
+## MODIFIED Requirements
+
+### Requirement: A commit is code or infrastructure, never both
+Infrastructure is the set of paths listed in `.github/infra-paths` (paths absent from upstream); every other path is code. CI SHALL reject any non-merge commit that touches both kinds. A range the check cannot resolve SHALL fail the check, never pass it unchecked.
+
+#### Scenario: Mixed commit
+- **WHEN** a commit changes `std/haxe/EntryPoint.hx` and `AGENTS.md`
+- **THEN** the `commit-kinds` CI job fails and names the commit
+
+#### Scenario: Single-kind commit
+- **WHEN** a commit changes only code paths, or only infrastructure paths
+- **THEN** the check passes
+
+#### Scenario: Unresolvable range
+- **WHEN** the check is given a range git cannot resolve, such as `refs/heads/missing..HEAD` or a push whose `before` commit no longer exists
+- **THEN** the check fails
+
+### Requirement: The check proves itself
+`.github/scripts/check-commit-kinds-test.sh` SHALL build a throwaway repository with a mixed commit and fail unless the check rejects it, and fail unless the check rejects an unresolvable range; CI runs it before the real check.
+
+#### Scenario: The check stops rejecting mixed commits
+- **WHEN** `check-commit-kinds.sh` accepts the mixed commit of the throwaway repository
+- **THEN** the self-test fails, and the `commit-kinds` CI job fails before the real check runs
+
+#### Scenario: The check accepts an unresolvable range
+- **WHEN** `check-commit-kinds.sh` exits 0 on `refs/heads/missing..HEAD`
+- **THEN** the self-test fails

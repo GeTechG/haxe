@@ -4,8 +4,10 @@
 set -euo pipefail
 range=${1:?usage: check-commit-kinds.sh <rev-range>}
 list=$(git rev-parse --show-toplevel)/.github/infra-paths
+# In its own assignment, so that set -e stops on a range git cannot resolve.
+commits=$(git rev-list --no-merges "$range")
 bad=0
-for c in $(git rev-list --no-merges "$range"); do
+for c in $commits; do
   code=0 infra=0
   while IFS= read -r f; do
     kind=code
