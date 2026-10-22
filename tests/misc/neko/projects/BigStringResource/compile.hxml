@@ -1,0 +1,4 @@
+--main Main
+--macro Main.addResource()
+--neko bin/main.n
+--cmd neko bin/main.n

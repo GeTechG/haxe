@@ -155,12 +155,17 @@ let gen_type_path p (path,t) =
 		let epath = List.fold_left (fun e path -> field p e path) (ident p path) l in
 		field p epath t
 
-let rec gen_big_string ctx p s =
+let gen_big_string ctx p s =
 	let max = 1 lsl 16 - 1 in
-	if String.length s > max then
-		(EBinop ("+",str p (String.sub s 0 max),gen_big_string ctx p (String.sub s max (String.length s - max))),p)
-	else
-		str p s
+	(* a balanced tree of concatenations: the VM limits the stack depth of a function, a chain would grow it with the length *)
+	let rec loop pos len =
+		if len > max then
+			let left = (len + max - 1) / max / 2 * max in
+			(EBinop ("+",loop pos left,loop (pos + left) (len - left)),p)
+		else
+			str p (String.sub s pos len)
+	in
+	loop 0 (String.length s)
 
 let gen_constant ctx pe c =
 	let p = pos ctx pe in
