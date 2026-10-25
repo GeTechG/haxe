@@ -470,7 +470,13 @@ and jit_expr jit return e =
 					(* If we have exactly one implementer, use it instead of the super class/interface. *)
 					else if not ctx.is_macro && c.cl_implements = [] && c.cl_super = None then begin match c.cl_descendants with
 						| [c'] when not (has_class_flag c' CInterface) && is_final c' cf ->
-							instance_call c'
+							(* The implementer may inherit the field, so call it on the class that declares it. *)
+							let rec loop c = match c.cl_super with
+								| _ when PMap.mem cf.cf_name c.cl_fields -> instance_call c
+								| Some(c,_) -> loop c
+								| None -> default()
+							in
+							loop c'
 						| _ ->
 							default()
 					end else
