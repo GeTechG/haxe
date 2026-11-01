@@ -1,6 +1,6 @@
 # haxe — agent guide
 
-Independent fork of `HaxeFoundation/haxe` (the Haxe compiler and standard library). Its consumers pin it by commit; they do not dictate how it is worked on. This file is the source of truth here; `.github/copilot-instructions.md` (from upstream) describes the code layout, build and tests.
+Independent fork of `HaxeFoundation/haxe` (the Haxe compiler and standard library). Its consumers pin it by commit; they do not dictate how it is worked on. This file is the source of truth here; `.github/copilot-instructions.md` (upstream's agent guide) describes the code layout, build and tests, with more in `.github/instructions/` by area.
 
 ## Workflow
 No pull requests: this fork is worked on solo. Work lives on branches and lands on `development` by rebase or merge; the only mandatory gate is green checks (see *Checks*) on the exact tree that lands. Work is scheduled by baton — load the `/baton` skill before filing or picking up an issue, or changing an issue's status, labels, `footprint` or blockers.
@@ -18,11 +18,12 @@ An issue runs the same seven steps, in order:
 The maintainer decides architecture and end-user behaviour, nothing else — steps 1 (`gate:spec`) and 4 are the only points where an agent waits for a human. Work without an issue: mechanical edits may go straight to `development`.
 
 ## Commits
-- Every commit is **code** (compiler and library sources, tests, upstream metadata — anything that exists upstream) or **infrastructure** (the paths listed in `.github/infra-paths`, absent from upstream: this file, `openspec/`, our CI and scripts). Never both — CI rejects a mixed commit.
+- Every commit is **code** (compiler and library sources, tests, upstream metadata — anything that exists upstream) or **infrastructure** (the paths listed in `.github/infra-paths`: this file, `openspec/`, our CI and scripts; absent from upstream, except this file). Never both — CI rejects a mixed commit.
 - OpenSpec artifacts (proposal, tasks, specs, archive) never share a commit with code.
 - Code commit messages are written as for upstream `HaxeFoundation/haxe`: `[area] Imperative summary` where an area applies (`[js]`, `[server]`, `[hlc]`), no mention of consumers or their paths.
 - An upstream PR is a cherry-pick of one task's code commits; keep them self-contained — they must build and pass tests without the infrastructure commits.
 - Changing the list of infrastructure paths is an infrastructure commit.
+- Upstream has its own `AGENTS.md`. On a merge from upstream this path stays ours, and upstream's text goes into `.github/copilot-instructions.md`, in the merge commit.
 
 ## Checks
 Before pushing:

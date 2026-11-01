@@ -1,4 +1,5 @@
-# Infrastructure paths: files that do not exist upstream (HaxeFoundation/haxe).
+# Infrastructure paths: files of this fork. They do not exist upstream (HaxeFoundation/haxe), except AGENTS.md:
+# upstream has its own, and on a merge from upstream this path stays ours (see AGENTS.md).
 # One path per line; a trailing / matches a directory prefix. Everything else is code.
 # A commit touches code or infrastructure, never both (see AGENTS.md).
 # extra/build-linux.sh is the one infrastructure path that moves the build key (AGENTS.md, Builds).
