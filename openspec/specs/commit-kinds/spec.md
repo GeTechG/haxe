@@ -6,7 +6,7 @@ Keep every commit either upstreamable code or fork infrastructure, so an upstrea
 ## Requirements
 
 ### Requirement: A commit is code or infrastructure, never both
-Infrastructure is the set of paths listed in `.github/infra-paths` (paths of this fork, absent from upstream except `AGENTS.md`); every other path is code. CI SHALL reject any non-merge commit that touches both kinds, except a commit brought in by an upstream sync merge. An upstream sync merge is a merge commit whose subject is exactly `Merge branch 'development' of https://github.com/HaxeFoundation/haxe into development`; a commit it brings in is one reachable from its second parent. A range the check cannot resolve SHALL fail the check, never pass it unchecked.
+Infrastructure is the set of paths listed in `.github/infra-paths` (paths of this fork, absent from upstream except `AGENTS.md`); every other path is code. CI SHALL reject any non-merge commit that touches both kinds, except one reachable from the second parent of an upstream sync merge: a merge whose subject is exactly `Merge branch 'development' of https://github.com/HaxeFoundation/haxe into development`. A range the check cannot resolve SHALL fail the check.
 
 #### Scenario: Mixed commit
 - **WHEN** a commit changes `std/haxe/EntryPoint.hx` and `AGENTS.md`

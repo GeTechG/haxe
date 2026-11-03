@@ -5,3 +5,32 @@ context: |
   HaxeFoundation/haxe. Its own rules live in AGENTS.md; its own specs live in openspec/specs.
   Consumers pin it by commit.
   Every commit is either code or infrastructure, never both (see openspec/specs/commit-kinds).
+
+# Per-artifact rules, injected only when that artifact is created.
+rules:
+  specs:
+    - A requirement's text is at most 500 characters and states one behaviour with SHALL or MUST;
+      details, examples and edge cases go into its scenarios.
+    - Scenarios use exactly `####` headings with WHEN/THEN bullets; every requirement has at least one.
+    - A spec states only observable behaviour, never how it is implemented.
+    - MODIFIED copies the whole requirement with every scenario it has; a scenario cannot move to
+      another requirement.
+    - REMOVED gives a Reason and a Migration.
+    - A new capability's Purpose is at least 50 characters and never `TBD`.
+  tasks:
+    - Each task group carries its own tests and documentation; every task names how it is checked.
+    - Steps after the tasks (cross-review, landing, a bump in a consumer) go under `## Workflow follow-up`
+      as plain bullets, not checkboxes.
+    - A step only a human can do is written `- [ ] N.M [human] …` and stays a checkbox (AGENTS.md, Workflow
+      step 4).
+
+# Per-operation guidance, injected only into apply / archive. It points at AGENTS.md; it does not
+# restate it.
+operations:
+  apply:
+    guidance:
+      - Follow AGENTS.md, Workflow steps 2 and 3, and its Commits and Checks sections.
+  archive:
+    guidance:
+      - Follow AGENTS.md, Workflow step 3, for when and where the archive commit goes.
+      - A new capability's main spec gets a real Purpose, never the `TBD` placeholder.

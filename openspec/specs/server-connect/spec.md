@@ -13,7 +13,7 @@ A command with `--connect` SHALL give the program it runs with `--run <class>` t
 - **THEN** `Sys.args()` in `Main` is `["a b", "-x y", "", "#c", "--connect", "1"]`
 
 ### Requirement: Eval code of the request sees the environment of the client
-For a request made by `haxe --connect`, `Sys.getEnv` and `Sys.environment` on eval — in the program under `--run` and in the macros of the request — SHALL answer from the environment of the client process, not from the one the server was started in. `Sys.putEnv` SHALL change what they answer for the rest of the request and SHALL NOT change the environment of the server, so that nothing of it reaches a later request. A request that carries no environment (one not made by `haxe --connect`) SHALL see the environment of the server.
+For a request made by `haxe --connect`, `Sys.getEnv` and `Sys.environment` on eval — in the program under `--run` and in the macros of the request — SHALL answer from the environment of the client process, not from the server's. `Sys.putEnv` SHALL change what they answer for the rest of the request only, never the environment of the server.
 
 #### Scenario: Variable set only for the client
 - **WHEN** the server was started without `X` and `X=client haxe --connect <port> --run Main` is run
@@ -27,6 +27,10 @@ For a request made by `haxe --connect`, `Sys.getEnv` and `Sys.environment` on ev
 - **WHEN** the program calls `Sys.putEnv("X", "changed")`
 - **THEN** `Sys.getEnv("X")` and `Sys.environment()["X"]` are `changed` until the request ends
 - **AND** the next request does not see `X=changed`, whoever sends it
+
+#### Scenario: Request that carries no environment
+- **WHEN** a request not made by `haxe --connect` runs eval code
+- **THEN** `Sys.getEnv` and `Sys.environment` answer from the environment of the server
 
 ### Requirement: The client exits with the code of the request
 A command with `--connect` SHALL exit with the code the same command exits with when run without `--connect`: the code a program under `--run` passes to `Sys.exit`, 1 for a failed compilation or an uncaught exception, 0 otherwise. What the program wrote to the standard error before it exited SHALL NOT change the code.
@@ -55,9 +59,7 @@ A command without `--connect`, and a request that reaches the server without the
 - **THEN** it is processed with the environment of the server and answered in the same format as before
 
 ### Requirement: A process started by the request gets the environment of the client
-A process started by a request made by `haxe --connect` — by `Sys.command` or `sys.io.Process` on eval, or by `--cmd` — SHALL get the environment eval code of the request sees at that moment: the environment of the client with the changes `Sys.putEnv` made in the request so far, and nothing of the environment of the server. Its program SHALL be looked up in the `PATH` of that environment, and in the default search path of the system when that environment has no `PATH`, never in the `PATH` of the server; on Windows this holds for a command line, which the shell runs, and a program started with an argument list is looked up in the `PATH` of the server. A request that carries no environment SHALL start processes in the environment of the server.
-
-The `haxelib` the compiler itself calls (to resolve `-lib`, to build for C++ or HashLink) is not covered: it runs in the environment of the server.
+A process started by a request made by `haxe --connect` (by `Sys.command` or `sys.io.Process` on eval, or by `--cmd`) SHALL get the environment eval code of the request sees at that moment — the client's, with the request's `Sys.putEnv` changes so far, nothing of the server's — and SHALL find its program by the `PATH` of that environment, or by the default search path of the system when it has none, never by the `PATH` of the server.
 
 #### Scenario: Variable set only for the client
 - **WHEN** the server was started without `X` and a program run with `X=client haxe --connect <port> --run Main` calls `Sys.command("sh", ["-c", "echo $X"])`
@@ -73,6 +75,14 @@ The `haxelib` the compiler itself calls (to resolve `-lib`, to build for C++ or 
 - **THEN** `X` is `changed` in the child
 - **AND** a child started by the next request does not see `X=changed`
 
+#### Scenario: Request that carries no environment
+- **WHEN** a request not made by `haxe --connect` starts a process
+- **THEN** the process gets the environment of the server
+
+#### Scenario: haxelib called by the compiler
+- **WHEN** the compiler itself calls `haxelib` for the request (to resolve `-lib`, to build for C++ or HashLink)
+- **THEN** this requirement does not cover it: `haxelib` runs in the environment of the server
+
 #### Scenario: Program found by the PATH of the client
 - **WHEN** the client is run with a directory first in its `PATH` that holds a program `tool`, the server was started without that directory, and the request calls `new sys.io.Process("tool", [])`
 - **THEN** the `tool` of that directory is run
@@ -81,3 +91,7 @@ The `haxelib` the compiler itself calls (to resolve `-lib`, to build for C++ or 
 - **WHEN** the server was started with a directory in its `PATH` that holds a program `tool`, the client is run without that directory, and the request calls `new sys.io.Process("tool", [])`
 - **THEN** the program is not found, as without `--connect`
 - **AND** it is not found either after the request calls `Sys.putEnv("PATH", null)`
+
+#### Scenario: Argument list on Windows
+- **WHEN** on Windows the request starts a program with an argument list rather than a command line
+- **THEN** the program is looked up in the `PATH` of the server; a command line, which the shell runs, is looked up as this requirement states

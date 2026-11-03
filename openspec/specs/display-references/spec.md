@@ -6,7 +6,7 @@ Say what a reference lookup answers when the files it has to type on the way do 
 ## Requirements
 
 ### Requirement: A candidate file that does not type does not fail the lookup
-To answer a reference lookup (`display/references`, and the lookups that share its search: rename, `display/implementation`) the compiler types the files of the class paths that mention the name and are not part of the compilation. An error in such a file — while its module is loaded or while anything it queued is typed — SHALL NOT fail the request and SHALL NOT be reported in its answer. The answer SHALL hold every usage in the compilation and every usage in the parts of the candidate files that do type.
+A reference lookup (`display/references`, and rename and `display/implementation`, which share its search) also types the class-path files that mention the name and are not part of the compilation. An error in such a file — while its module is loaded or while anything it queued is typed — SHALL NOT fail the request nor appear in its answer. The answer SHALL hold every usage in the compilation and in the parts of those files that do type.
 
 #### Scenario: Candidate with classes that fail to load
 - **WHEN** a file outside the compilation uses the looked-up member in two methods and also declares classes that implement a type that does not exist
