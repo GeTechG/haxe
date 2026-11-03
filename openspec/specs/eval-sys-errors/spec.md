@@ -6,9 +6,7 @@ Say what a program on eval sees when the operating system refuses a `sys` call: 
 ## Requirements
 
 ### Requirement: An operating system error in a sys call is a Haxe exception
-When the operating system refuses a call of the `sys` API made by a program on eval — under `--run`, `--interp` or in a macro — the call SHALL throw a Haxe exception that the program can catch with `catch (e:haxe.Exception)`. The error SHALL NOT end the compiler with the OCaml exception (`Unix.Unix_error(…)`, `Failure`) instead. This covers `sys.net.Socket`, `sys.io.Process`, `Sys.putEnv` with a value and `Sys.systemName`; removing a variable (`Sys.putEnv(name, null)`) is not covered, its result is not looked at.
-
-An exception the program does not catch ends the run with an error, like any other uncaught exception.
+When the operating system refuses a call of the `sys` API made by a program on eval — under `--run`, `--interp` or in a macro — the call SHALL throw a Haxe exception the program can catch with `catch (e:haxe.Exception)`, never end the compiler with the OCaml exception (`Unix.Unix_error(…)`, `Failure`). This covers `sys.net.Socket`, `sys.io.Process`, `Sys.putEnv` with a value and `Sys.systemName`.
 
 #### Scenario: shutdown of a socket that is not connected
 - **WHEN** a program on eval calls `shutdown(true, true)` on a `sys.net.Socket` that is not connected, inside `try … catch (e:haxe.Exception)`
@@ -22,3 +20,11 @@ An exception the program does not catch ends the run with an error, like any oth
 #### Scenario: Writing to the stdin of a closed process
 - **WHEN** the program writes to the `stdin` of a `sys.io.Process` after `close()`
 - **THEN** it gets an exception it can catch
+
+#### Scenario: Exception the program does not catch
+- **WHEN** such a call throws outside any `try … catch`
+- **THEN** the run ends with an error, like with any other uncaught exception
+
+#### Scenario: Removing a variable
+- **WHEN** the program calls `Sys.putEnv(name, null)`
+- **THEN** this requirement does not cover the call: its result is not looked at
